@@ -1,0 +1,6 @@
+steg:
+    connections:
+        vllm:
+            dsn: '%env(STEG_VLLM_DSN)%'
+            timeout: 120
+    default_connection: vllm

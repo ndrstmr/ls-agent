@@ -1,0 +1,137 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}LS-KI Agent — Leichte Sprache mit Steg{% endblock %}
+
+{% block stylesheets %}
+<style>
+    :root {
+        --bg: #f7f7f5;
+        --fg: #1a1a1a;
+        --muted: #6b6b6b;
+        --accent: #0b5fff;
+        --border: #d8d8d2;
+        --success-bg: #eef6ee;
+        --error-bg: #fdecec;
+        --error-fg: #8a1f1f;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        margin: 0;
+        line-height: 1.5;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+    .lead { color: var(--muted); margin: 0 0 2rem; }
+    form > div + div { margin-top: 1rem; }
+    label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    textarea, input[type="number"] {
+        width: 100%;
+        font: inherit;
+        padding: 0.6rem 0.7rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+    }
+    textarea { resize: vertical; min-height: 200px; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.92rem; }
+    .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    button[type="submit"] {
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        padding: 0.7rem 1.2rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1rem;
+    }
+    button[type="submit"]:hover { filter: brightness(1.05); }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; }
+    .col { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+    .col h2 { margin: 0 0 0.75rem; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .col.translated { background: var(--success-bg); }
+    .col pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: inherit;
+        font-size: 1rem;
+    }
+    .meta {
+        margin-top: 0.75rem;
+        font-size: 0.82rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .meta code { background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 3px; }
+    .error {
+        background: var(--error-bg);
+        color: var(--error-fg);
+        padding: 0.9rem 1rem;
+        border-radius: 6px;
+        margin-top: 1.5rem;
+        border: 1px solid #e8c0c0;
+    }
+    .form-errors { color: var(--error-fg); font-size: 0.88rem; margin-top: 0.25rem; }
+    @media (max-width: 800px) {
+        .columns, .settings { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="wrap">
+    <h1>🌊 LS-KI Agent</h1>
+    <p class="lead">Verwaltungstexte in Leichte Sprache übersetzen — über Steg an ein lokales LLM.</p>
+
+    {{ form_start(form) }}
+        <div>
+            {{ form_label(form.originalText) }}
+            {{ form_widget(form.originalText) }}
+            <div class="form-errors">{{ form_errors(form.originalText) }}</div>
+        </div>
+
+        <div class="settings">
+            <div>
+                {{ form_label(form.temperature) }}
+                {{ form_widget(form.temperature) }}
+                <div class="form-errors">{{ form_errors(form.temperature) }}</div>
+            </div>
+            <div>
+                {{ form_label(form.maxTokens) }}
+                {{ form_widget(form.maxTokens) }}
+                <div class="form-errors">{{ form_errors(form.maxTokens) }}</div>
+            </div>
+        </div>
+
+        {{ form_widget(form.submit) }}
+    {{ form_end(form) }}
+
+    {% if error %}
+        <div class="error"><strong>Fehler:</strong> {{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+        <div class="columns">
+            <div class="col">
+                <h2>Original</h2>
+                <pre>{{ result.originalText }}</pre>
+            </div>
+            <div class="col translated">
+                <h2>Leichte Sprache</h2>
+                <pre>{{ result.translatedText }}</pre>
+            </div>
+        </div>
+        <div class="meta">
+            <span>Modell: <code>{{ result.model }}</code></span>
+            <span>Prompt-Tokens: <code>{{ result.promptTokens }}</code></span>
+            <span>Completion-Tokens: <code>{{ result.completionTokens }}</code></span>
+            <span>Dauer: <code>{{ result.durationMs|number_format(0) }} ms</code></span>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
