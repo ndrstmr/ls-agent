@@ -20,13 +20,32 @@ PoC für die Lotse-Plattform — minimaler Showcase für
 composer install
 
 # Lokale Konfiguration anlegen
-cp .env .env.local
+cp .env.local.dist .env.local
 ```
 
 `.env.local` editieren und den vLLM-Endpoint eintragen:
 
 ```dotenv
 STEG_VLLM_DSN=vllm://vllm.example.org:8000/v1?model=llama-3.3-70b-awq
+```
+
+Wichtig für Public-Repos: `.env.local` ist nur lokal und bleibt unversioniert.
+
+## Public-Repo-Hygiene
+
+- Keine internen Hostnamen, Tokens oder Zugangsdaten in commitbaren Dateien.
+- Nur Platzhalter in `.env`, `.env.dev`, `.env.test`, `.env.local.dist`.
+- Reale Verbindungsdaten ausschließlich in `.env.local` oder als echte
+    Umgebungsvariablen auf dem Zielsystem.
+
+Quick-Checks vor jedem Push:
+
+```bash
+# Prüfen, dass keine lokalen env-Dateien getrackt sind
+git ls-files | grep -E '^\.env(\..+)?\.local$' || true
+
+# Nach internen Domains/Begriffen im Repo suchen
+git grep -nE 'dataport\.de|\.internal|secret|token|password' .
 ```
 
 ## Starten
