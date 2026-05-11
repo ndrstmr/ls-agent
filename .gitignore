@@ -9,6 +9,7 @@
 /public/bundles/
 /var/
 /vendor/
+/RELEASE_CHECKLIST.md
 ###< symfony/framework-bundle ###
 
 ###> phpunit/phpunit ###

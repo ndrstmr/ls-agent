@@ -45,7 +45,7 @@ Quick-Checks vor jedem Push:
 git ls-files | grep -E '^\.env(\..+)?\.local$' || true
 
 # Nach internen Domains/Begriffen im Repo suchen
-git grep -nE 'dataport\.de|\.internal|secret|token|password' .
+git grep -nE 'secret|token|password|api[_-]?key|authorization|bearer|private[_-]?key' .
 ```
 
 ## Starten
