@@ -80,6 +80,41 @@
         font-family: inherit;
         font-size: 1rem;
     }
+    .result-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-bottom: 0.9rem;
+        align-items: center;
+    }
+    .action-button {
+        background: #fff;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        padding: 0.45rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+    .action-button:hover { border-color: var(--accent); color: var(--accent); }
+    .copy-feedback {
+        font-size: 0.82rem;
+        color: var(--muted);
+    }
+    .markdown-output {
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+    .markdown-output p { margin: 0 0 0.8rem; }
+    .markdown-output p:last-child { margin-bottom: 0; }
+    .markdown-output ul,
+    .markdown-output ol { margin: 0.4rem 0 0.8rem 1.25rem; }
+    .raw-markdown { margin-top: 1rem; }
+    .raw-markdown summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 0.85rem;
+    }
     .meta {
         margin-top: 0.75rem;
         font-size: 0.82rem;
@@ -182,7 +217,16 @@
                 </div>
                 <div class="col translated">
                     <h2>Leichte Sprache</h2>
-                    <pre>{{ result.translatedText }}</pre>
+                    <div class="result-actions">
+                        <button id="copy-markdown" class="action-button" type="button">Markdown kopieren</button>
+                        <button id="export-markdown" class="action-button" type="button">Als .md exportieren</button>
+                        <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
+                    </div>
+                    <div id="translated-markdown" class="markdown-output" data-markdown="{{ result.translatedText|e('html_attr') }}"></div>
+                    <details class="raw-markdown">
+                        <summary>Markdown-Quelle anzeigen</summary>
+                        <pre id="translated-markdown-raw">{{ result.translatedText }}</pre>
+                    </details>
                 </div>
             </div>
             <div class="meta">
@@ -229,6 +273,8 @@
     {% endif %}
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script>
 document.querySelectorAll('.tab-button').forEach(button => {
     button.addEventListener('click', function(e) {
@@ -244,5 +290,52 @@ document.querySelectorAll('.tab-button').forEach(button => {
         this.classList.add('active');
     });
 });
+
+const translatedMarkdownElement = document.getElementById('translated-markdown');
+
+if (translatedMarkdownElement) {
+    const markdownText = translatedMarkdownElement.dataset.markdown || '';
+    const copyButton = document.getElementById('copy-markdown');
+    const exportButton = document.getElementById('export-markdown');
+    const copyFeedback = document.getElementById('copy-feedback');
+
+    if (window.marked && window.DOMPurify) {
+        const renderedHtml = window.marked.parse(markdownText);
+        translatedMarkdownElement.innerHTML = window.DOMPurify.sanitize(renderedHtml);
+    } else {
+        translatedMarkdownElement.textContent = markdownText;
+    }
+
+    if (copyButton) {
+        copyButton.addEventListener('click', async function () {
+            try {
+                await navigator.clipboard.writeText(markdownText);
+                if (copyFeedback) {
+                    copyFeedback.textContent = 'Markdown kopiert.';
+                }
+            } catch (error) {
+                if (copyFeedback) {
+                    copyFeedback.textContent = 'Kopieren fehlgeschlagen.';
+                }
+            }
+        });
+    }
+
+    if (exportButton) {
+        exportButton.addEventListener('click', function () {
+            const blob = new Blob([markdownText], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+
+            link.href = url;
+            link.download = 'leichte-sprache-' + timestamp + '.md';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        });
+    }
+}
 </script>
 {% endblock %}
