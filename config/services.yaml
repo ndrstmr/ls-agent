@@ -37,7 +37,6 @@ services:
             $client: '@Steg\Client\InferenceClientInterface'
             $prompts: '@App\Translator\PromptLoader'
             $auditTrail: '@App\Audit\AuditTrailService'
-            $qualityCheckTool: '@App\Translator\QualityCheckTool'
 
     App\Audit\AuditTrailService:
         arguments:

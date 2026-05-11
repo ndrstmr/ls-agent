@@ -26,12 +26,12 @@ final readonly class QualityCheckTool
     }
 
     /**
-     * @return array{score: int, issues: list<array>, summary: string}
+     * @return array{score: int, issues: list<array>, summary: string, prompt: string, raw_response: string}
      */
     public function check(string $translatedText): array
     {
         if ('' === trim($translatedText)) {
-            return ['score' => 0, 'issues' => [], 'summary' => 'Kein Text zum Prüfen übergeben.'];
+            return ['score' => 0, 'issues' => [], 'summary' => 'Kein Text zum Prüfen übergeben.', 'prompt' => '', 'raw_response' => ''];
         }
 
         try {
@@ -46,6 +46,7 @@ final readonly class QualityCheckTool
             );
 
             $content = trim($response->content);
+            $rawContent = $content;
 
             // JSON-Extraktion: Modelle schreiben manchmal ```json ... ``` drum herum
             if (preg_match('/\{.*\}/s', $content, $matches)) {
@@ -55,16 +56,18 @@ final readonly class QualityCheckTool
             $result = json_decode($content, true);
 
             if (json_last_error() !== JSON_ERROR_NONE || !is_array($result)) {
-                return ['score' => 0, 'issues' => [], 'summary' => 'Qualitätsprüfung: Ungültige Antwort vom Modell.'];
+                return ['score' => 0, 'issues' => [], 'summary' => 'Qualitätsprüfung: Ungültige Antwort vom Modell.', 'prompt' => $systemPrompt, 'raw_response' => $rawContent];
             }
 
             return [
                 'score' => (int) ($result['score'] ?? 0),
                 'issues' => (array) ($result['issues'] ?? []),
                 'summary' => (string) ($result['summary'] ?? ''),
+                'prompt' => $systemPrompt,
+                'raw_response' => $rawContent,
             ];
         } catch (\Throwable $e) {
-            return ['score' => 0, 'issues' => [], 'summary' => 'Qualitätsprüfung fehlgeschlagen: ' . $e->getMessage()];
+            return ['score' => 0, 'issues' => [], 'summary' => 'Qualitätsprüfung fehlgeschlagen: ' . $e->getMessage(), 'prompt' => '', 'raw_response' => ''];
         }
     }
 }

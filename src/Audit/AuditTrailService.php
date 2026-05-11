@@ -21,7 +21,8 @@ final readonly class AuditTrailService
             'trace_id' => $traceId,
             'event_type' => $eventType,
             'created_at' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
-        ] + $context;
+            'context' => $context,
+        ];
 
         $line = json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (false === $line) {

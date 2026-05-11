@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Form;
 
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
@@ -46,10 +45,6 @@ final class TranslateFormType extends AbstractType
                 'constraints' => [
                     new Assert\Range(min: 64, max: 8192),
                 ],
-            ])
-            ->add('qualityCheck', CheckboxType::class, [
-                'label' => 'Qualitätscheck durchführen',
-                'required' => false,
             ])
             ->add('submit', SubmitType::class, [
                 'label' => 'In Leichte Sprache übersetzen',

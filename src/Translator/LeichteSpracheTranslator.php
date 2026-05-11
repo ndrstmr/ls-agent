@@ -15,41 +15,38 @@ final readonly class LeichteSpracheTranslator
         private InferenceClientInterface $client,
         private PromptLoader $prompts,
         private ?AuditTrailService $auditTrail = null,
-        private ?QualityCheckTool $qualityCheckTool = null,
     ) {
     }
 
     public function translate(TranslationRequest $request): TranslationResult
     {
+        $systemPrompt = $this->prompts->load('translate');
+
         $options = CompletionOptions::leichteSprache()
             ->withTemperature($request->temperature)
             ->withMaxTokens($request->maxTokens);
 
         $response = $this->client->complete(
             [
-                ChatMessage::system($this->prompts->load('translate')),
+                ChatMessage::system($systemPrompt),
                 ChatMessage::user($request->originalText),
             ],
             $options,
         );
 
         $translatedText = trim($response->content);
-        $qualityCheckResult = null;
 
-        // Optional: Qualitätsprüfung nach Übersetzung
-        if ($request->qualityCheck && null !== $this->qualityCheckTool) {
-            $this->auditTrail?->logEvent($request->traceId, 'quality_started', [
-                'status' => 'started',
-            ]);
-
-            $qualityCheckResult = $this->qualityCheckTool->check($translatedText);
-
-            $this->auditTrail?->logEvent($request->traceId, 'quality_completed', [
-                'status' => 'completed',
-                'score' => (int) ($qualityCheckResult['score'] ?? 0),
-                'issues_count' => count((array) ($qualityCheckResult['issues'] ?? [])),
-            ]);
-        }
+        $this->auditTrail?->logEvent($request->traceId, 'translate_api_call', [
+            'status' => 'completed',
+            'system_prompt' => $systemPrompt,
+            'user_prompt' => $request->originalText,
+            'api_response' => $response->content,
+            'model' => $response->model,
+            'finish_reason' => $response->finishReason,
+            'prompt_tokens' => $response->promptTokens,
+            'completion_tokens' => $response->completionTokens,
+            'duration_ms' => $response->durationMs,
+        ]);
 
         return new TranslationResult(
             traceId: $request->traceId,
@@ -59,7 +56,6 @@ final readonly class LeichteSpracheTranslator
             promptTokens: $response->promptTokens,
             completionTokens: $response->completionTokens,
             durationMs: $response->durationMs,
-            qualityCheck: $qualityCheckResult,
         );
     }
 }

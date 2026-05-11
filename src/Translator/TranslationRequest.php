@@ -11,7 +11,6 @@ final readonly class TranslationRequest
         public string $traceId = '',
         public float $temperature = 0.3,
         public int $maxTokens = 2048,
-        public bool $qualityCheck = false,
     ) {
     }
 }

@@ -180,7 +180,6 @@
 <div class="wrap">
     <div class="topbar">
         <h1>🌊 LS-KI Agent</h1>
-        <a class="nav-link" href="{{ path('app_audit') }}">Audit Trail</a>
     </div>
     <p class="lead">Verwaltungstexte in Leichte Sprache übersetzen — über Steg an ein lokales LLM.</p>
 
@@ -204,11 +203,6 @@
             </div>
         </div>
 
-        <label class="checkbox-label">
-            {{ form_widget(form.qualityCheck) }}
-            {{ form_label(form.qualityCheck) }}
-        </label>
-
         {{ form_widget(form.submit) }}
     {{ form_end(form) }}
 
@@ -217,13 +211,15 @@
     {% endif %}
 
     {% if result %}
-        <div class="tabs">
+        <div class="tabs" id="result-tabs"
+            data-quality-url="{{ path('app_quality_check')|e('html_attr') }}"
+            data-audit-url="{{ path('app_audit_events')|e('html_attr') }}">
             <button class="tab-button active" data-tab="translation-result">Ergebnis</button>
-            {% if result.qualityCheck %}
-            <button class="tab-button" data-tab="quality-check">Qualitätscheck</button>
-            {% endif %}
+            <button class="tab-button" data-tab="quality-check" id="tab-btn-quality">Qualitätscheck</button>
+            <button class="tab-button" data-tab="audit-trail" id="tab-btn-audit">Audit Trail</button>
         </div>
 
+        {# Tab 1: Ergebnis #}
         <div id="translation-result" class="tab-content active">
             <div class="columns">
                 <div class="col">
@@ -235,9 +231,13 @@
                     <div class="result-actions">
                         <button id="copy-markdown" class="action-button" type="button">Markdown kopieren</button>
                         <button id="export-markdown" class="action-button" type="button">Als .md exportieren</button>
+                        <button id="run-quality-check" class="action-button" type="button">
+                            ✓ Qualitätscheck starten
+                        </button>
                         <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
                     </div>
-                    <div id="translated-markdown" class="markdown-output" data-markdown="{{ result.translatedText|e('html_attr') }}"></div>
+                    <div id="translated-markdown" class="markdown-output"></div>
+                    <script id="result-data" type="application/json">{{ {translatedText: result.translatedText, traceId: result.traceId}|json_encode(constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES') b-or constant('JSON_HEX_TAG'))|raw }}</script>
                     <details class="raw-markdown">
                         <summary>Markdown-Quelle anzeigen</summary>
                         <pre id="translated-markdown-raw">{{ result.translatedText }}</pre>
@@ -245,7 +245,7 @@
                 </div>
             </div>
             <div class="meta">
-                <span>Trace: <code>{{ result.traceId }}</code> <a class="nav-link" href="{{ path('app_audit', {trace_id: result.traceId}) }}">anzeigen</a></span>
+                <span>Trace: <code>{{ result.traceId }}</code></span>
                 <span>Modell: <code>{{ result.model }}</code></span>
                 <span>Prompt-Tokens: <code>{{ result.promptTokens }}</code></span>
                 <span>Completion-Tokens: <code>{{ result.completionTokens }}</code></span>
@@ -253,105 +253,227 @@
             </div>
         </div>
 
-        {% if result.qualityCheck %}
+        {# Tab 2: Qualitätscheck (async) #}
         <div id="quality-check" class="tab-content">
-            {% set score = result.qualityCheck.score|default(0) %}
-            {% set scoreClass = score >= 80 ? 'high' : (score >= 60 ? 'medium' : 'low') %}
-            <div class="quality-score {{ scoreClass }}">
-                Score: {{ score }}/100
+            <div id="quality-placeholder" style="color: var(--muted); margin-top: 1rem;">
+                Klicke „Qualitätscheck starten" oder wechsle in diesen Tab nach dem Start.
             </div>
-
-            {% if result.qualityCheck.summary %}
-            <div class="quality-summary">{{ result.qualityCheck.summary }}</div>
-            {% endif %}
-
-            {% if result.qualityCheck.issues|length > 0 %}
-            <div class="quality-issues">
-                <h3>Erkannte Probleme</h3>
-                {% for issue in result.qualityCheck.issues %}
-                <div class="issue {{ issue.severity|default('low') }}">
-                    <div>
-                        <span class="issue-rule">{{ issue.rule|default('Unbekannte Regel') }}</span>
-                        <span class="issue-severity {{ issue.severity|default('low') }}">{{ issue.severity|upper }}</span>
-                    </div>
-                    {% if issue.text %}
-                    <div class="issue-text">„{{ issue.text }}"</div>
-                    {% endif %}
-                    {% if issue.suggestion %}
-                    <div class="issue-suggestion"><strong>Vorschlag:</strong> {{ issue.suggestion }}</div>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+            <div id="quality-loading" style="display:none; color: var(--muted); margin-top: 1rem;">Prüfung läuft…</div>
+            <div id="quality-result" style="display:none;"></div>
         </div>
-        {% endif %}
+
+        {# Tab 3: Audit Trail (async) #}
+        <div id="audit-trail" class="tab-content">
+            <div id="audit-loading" style="color: var(--muted); margin-top: 1rem;">Lade Audit-Events…</div>
+            <div id="audit-table-wrap" style="display:none; overflow-x: auto; margin-top: 1rem;">
+                <table style="width:100%; border-collapse: collapse; font-size: 0.88rem;">
+                    <thead>
+                        <tr style="background: rgba(0,0,0,0.04); text-align: left;">
+                            <th style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);">Zeit</th>
+                            <th style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);">Event</th>
+                            <th style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);">Status</th>
+                            <th style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-tbody"></tbody>
+                </table>
+            </div>
+        </div>
     {% endif %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script>
+// — Tab navigation —
 document.querySelectorAll('.tab-button').forEach(button => {
     button.addEventListener('click', function(e) {
         e.preventDefault();
         const tabId = this.getAttribute('data-tab');
-        
-        // Hide all tabs
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        
-        // Show selected tab
         document.getElementById(tabId)?.classList.add('active');
         this.classList.add('active');
+
+        if (tabId === 'audit-trail') {
+            loadAuditTrail();
+        }
     });
 });
 
+// — Result data from JSON script tag —
+const resultDataEl = document.getElementById('result-data');
+const resultData = resultDataEl ? JSON.parse(resultDataEl.textContent) : {};
+const markdownText = resultData.translatedText || '';
+const resultTraceId = resultData.traceId || '';
 const translatedMarkdownElement = document.getElementById('translated-markdown');
 
 if (translatedMarkdownElement) {
-    const markdownText = translatedMarkdownElement.dataset.markdown || '';
-    const copyButton = document.getElementById('copy-markdown');
-    const exportButton = document.getElementById('export-markdown');
-    const copyFeedback = document.getElementById('copy-feedback');
-
     if (window.marked && window.DOMPurify) {
-        const renderedHtml = window.marked.parse(markdownText);
-        translatedMarkdownElement.innerHTML = window.DOMPurify.sanitize(renderedHtml);
+        translatedMarkdownElement.innerHTML = window.DOMPurify.sanitize(window.marked.parse(markdownText));
     } else {
         translatedMarkdownElement.textContent = markdownText;
     }
+}
 
-    if (copyButton) {
-        copyButton.addEventListener('click', async function () {
-            try {
-                await navigator.clipboard.writeText(markdownText);
-                if (copyFeedback) {
-                    copyFeedback.textContent = 'Markdown kopiert.';
-                }
-            } catch (error) {
-                if (copyFeedback) {
-                    copyFeedback.textContent = 'Kopieren fehlgeschlagen.';
-                }
-            }
-        });
+// — Copy / Export —
+const copyButton = document.getElementById('copy-markdown');
+const exportButton = document.getElementById('export-markdown');
+const copyFeedback = document.getElementById('copy-feedback');
+
+if (copyButton) {
+    copyButton.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(markdownText);
+            if (copyFeedback) copyFeedback.textContent = 'Markdown kopiert.';
+        } catch {
+            if (copyFeedback) copyFeedback.textContent = 'Kopieren fehlgeschlagen.';
+        }
+    });
+}
+
+if (exportButton) {
+    exportButton.addEventListener('click', () => {
+        const blob = new Blob([markdownText], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'leichte-sprache-' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '.md';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// — Qualitätscheck (AJAX) —
+const qualityBtn = document.getElementById('run-quality-check');
+let qualityLoaded = false;
+
+function renderQualityResult(data) {
+    const wrap = document.getElementById('quality-result');
+    const score = data.score || 0;
+    const scoreClass = score >= 80 ? 'high' : (score >= 60 ? 'medium' : 'low');
+
+    let html = `<div class="quality-score ${scoreClass}">Score: ${score}/100</div>`;
+
+    if (data.summary) {
+        html += `<div class="quality-summary">${escapeHtml(data.summary)}</div>`;
     }
 
-    if (exportButton) {
-        exportButton.addEventListener('click', function () {
-            const blob = new Blob([markdownText], { type: 'text/markdown;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
-
-            link.href = url;
-            link.download = 'leichte-sprache-' + timestamp + '.md';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
+    if (data.issues && data.issues.length > 0) {
+        html += '<div class="quality-issues"><h3>Erkannte Probleme</h3>';
+        data.issues.forEach(issue => {
+            const sev = escapeHtml(issue.severity || 'low');
+            html += `<div class="issue ${sev}">
+                <div>
+                    <span class="issue-rule">${escapeHtml(issue.rule || 'Unbekannte Regel')}</span>
+                    <span class="issue-severity ${sev}">${sev.toUpperCase()}</span>
+                </div>
+                ${issue.text ? `<div class="issue-text">„${escapeHtml(issue.text)}"</div>` : ''}
+                ${issue.suggestion ? `<div class="issue-suggestion"><strong>Vorschlag:</strong> ${escapeHtml(issue.suggestion)}</div>` : ''}
+            </div>`;
         });
+        html += '</div>';
     }
+
+    if (wrap) {
+        wrap.innerHTML = html;
+        wrap.style.display = 'block';
+    }
+    document.getElementById('quality-placeholder').style.display = 'none';
+    document.getElementById('quality-loading').style.display = 'none';
+}
+
+async function runQualityCheck(translatedText, traceId) {
+    if (qualityLoaded) return;
+    qualityLoaded = true;
+
+    // Switch to quality tab
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.getElementById('quality-check').classList.add('active');
+    document.getElementById('tab-btn-quality').classList.add('active');
+
+    document.getElementById('quality-placeholder').style.display = 'none';
+    document.getElementById('quality-loading').style.display = 'block';
+
+    try {
+        const response = await fetch(document.getElementById('result-tabs').dataset.qualityUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ translatedText, traceId }),
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderQualityResult(data);
+    } catch (err) {
+        document.getElementById('quality-loading').style.display = 'none';
+        document.getElementById('quality-placeholder').style.display = 'block';
+        document.getElementById('quality-placeholder').textContent = 'Fehler beim Qualitätscheck: ' + err.message;
+    }
+}
+
+if (qualityBtn) {
+    qualityBtn.addEventListener('click', () => {
+        runQualityCheck(markdownText, resultTraceId);
+    });
+}
+
+// — Audit Trail (AJAX) —
+let auditLoaded = false;
+
+async function loadAuditTrail() {
+    if (!resultTraceId) return;
+
+    try {
+        const url = document.getElementById('result-tabs').dataset.auditUrl + '?trace_id=' + encodeURIComponent(resultTraceId);
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const events = await response.json();
+
+        const tbody = document.getElementById('audit-tbody');
+        if (!tbody) return;
+
+        if (!events.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding: 0.75rem; color: var(--muted);">Keine Events gefunden.</td></tr>';
+        } else {
+            tbody.innerHTML = events.map(ev => {
+                const time = ev.created_at ? new Date(ev.created_at).toLocaleTimeString('de-DE') : '–';
+                const ctx = ev.context || {};
+                const details = Object.entries(ctx)
+                    .filter(([k]) => !['status', 'system_prompt', 'user_prompt', 'api_response'].includes(k))
+                    .map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(String(v).substring(0, 120))}</code>`)
+                    .join(' ');
+                const hasPrompt = ctx.system_prompt || ctx.api_response;
+                const promptDetail = hasPrompt
+                    ? `<details style="margin-top:0.3rem;"><summary style="cursor:pointer;font-size:0.8rem;color:var(--muted);">Prompt / API-Response</summary>`
+                      + (ctx.system_prompt ? `<div style="margin-top:0.3rem;"><strong>System-Prompt:</strong><pre style="white-space:pre-wrap;font-size:0.78rem;max-height:200px;overflow:auto;background:rgba(0,0,0,0.03);padding:0.5rem;border-radius:4px;">${escapeHtml(ctx.system_prompt)}</pre></div>` : '')
+                      + (ctx.user_prompt ? `<div style="margin-top:0.3rem;"><strong>User-Prompt:</strong><pre style="white-space:pre-wrap;font-size:0.78rem;max-height:200px;overflow:auto;background:rgba(0,0,0,0.03);padding:0.5rem;border-radius:4px;">${escapeHtml(ctx.user_prompt)}</pre></div>` : '')
+                      + (ctx.api_response ? `<div style="margin-top:0.3rem;"><strong>API-Response:</strong><pre style="white-space:pre-wrap;font-size:0.78rem;max-height:200px;overflow:auto;background:rgba(0,0,0,0.03);padding:0.5rem;border-radius:4px;">${escapeHtml(ctx.api_response)}</pre></div>` : '')
+                      + `</details>`
+                    : '';
+                return `<tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 0.5rem 0.75rem; white-space: nowrap;">${time}</td>
+                    <td style="padding: 0.5rem 0.75rem;"><code>${escapeHtml(ev.event_type || '')}</code></td>
+                    <td style="padding: 0.5rem 0.75rem;">${escapeHtml(ctx.status || '')}</td>
+                    <td style="padding: 0.5rem 0.75rem; font-size: 0.82rem; color: var(--muted);">${details}${promptDetail}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        document.getElementById('audit-loading').style.display = 'none';
+        document.getElementById('audit-table-wrap').style.display = 'block';
+        auditLoaded = true;
+    } catch (err) {
+        document.getElementById('audit-loading').textContent = 'Fehler beim Laden: ' + err.message;
+    }
+}
+
+// — Helpers —
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 </script>
 {% endblock %}

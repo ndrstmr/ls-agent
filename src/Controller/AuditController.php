@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Audit\AuditTrailService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,5 +32,18 @@ final class AuditController extends AbstractController
             'events' => $events,
             'traceId' => $traceId,
         ]);
+    }
+
+    #[Route('/audit-events', name: 'app_audit_events', methods: ['GET'])]
+    public function events(Request $request): JsonResponse
+    {
+        $traceId = trim((string) $request->query->get('trace_id', ''));
+        if ('' === $traceId) {
+            $traceId = null;
+        }
+
+        $events = $this->auditTrail->readEvents($traceId, 100);
+
+        return $this->json($events);
     }
 }

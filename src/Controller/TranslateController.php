@@ -38,16 +38,15 @@ final class TranslateController extends AbstractController
         $error = null;
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var array{originalText: string, temperature: float|string, maxTokens: int|string, qualityCheck?: bool} $data */
+            /** @var array{originalText: string, temperature: float|string, maxTokens: int|string} $data */
             $data = $form->getData();
 
-            $traceId = Uuid::v7()->toRfc4122();
+            $traceId = Uuid::v4()->toRfc4122();
 
             $this->auditTrail->logEvent($traceId, 'translate_started', [
                 'status' => 'started',
                 'input_hash' => $this->auditTrail->hashText($data['originalText']),
                 'input_length' => mb_strlen($data['originalText']),
-                'quality_check_enabled' => (bool) ($data['qualityCheck'] ?? false),
             ]);
 
             $translationRequest = new TranslationRequest(
@@ -55,7 +54,6 @@ final class TranslateController extends AbstractController
                 originalText: $data['originalText'],
                 temperature: (float) $data['temperature'],
                 maxTokens: (int) $data['maxTokens'],
-                qualityCheck: (bool) ($data['qualityCheck'] ?? false),
             );
 
             try {
