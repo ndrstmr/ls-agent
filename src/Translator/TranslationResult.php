@@ -13,6 +13,7 @@ final readonly class TranslationResult
         public int $promptTokens,
         public int $completionTokens,
         public float $durationMs,
+        public ?array $qualityCheck = null,
     ) {
     }
 }

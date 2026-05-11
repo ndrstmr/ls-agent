@@ -13,6 +13,7 @@ final readonly class LeichteSpracheTranslator
     public function __construct(
         private InferenceClientInterface $client,
         private PromptLoader $prompts,
+        private ?QualityCheckTool $qualityCheckTool = null,
     ) {
     }
 
@@ -30,13 +31,22 @@ final readonly class LeichteSpracheTranslator
             $options,
         );
 
+        $translatedText = trim($response->content);
+        $qualityCheckResult = null;
+
+        // Optional: Qualitätsprüfung nach Übersetzung
+        if ($request->qualityCheck && null !== $this->qualityCheckTool) {
+            $qualityCheckResult = $this->qualityCheckTool->check($translatedText);
+        }
+
         return new TranslationResult(
             originalText: $request->originalText,
-            translatedText: trim($response->content),
+            translatedText: $translatedText,
             model: $response->model,
             promptTokens: $response->promptTokens,
             completionTokens: $response->completionTokens,
             durationMs: $response->durationMs,
+            qualityCheck: $qualityCheckResult,
         );
     }
 }

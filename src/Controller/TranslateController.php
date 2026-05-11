@@ -36,13 +36,14 @@ final class TranslateController extends AbstractController
         $error = null;
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var array{originalText: string, temperature: float|string, maxTokens: int|string} $data */
+            /** @var array{originalText: string, temperature: float|string, maxTokens: int|string, qualityCheck?: bool} $data */
             $data = $form->getData();
 
             $translationRequest = new TranslationRequest(
                 originalText: $data['originalText'],
                 temperature: (float) $data['temperature'],
                 maxTokens: (int) $data['maxTokens'],
+                qualityCheck: (bool) ($data['qualityCheck'] ?? false),
             );
 
             try {

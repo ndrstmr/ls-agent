@@ -13,6 +13,8 @@
         --success-bg: #eef6ee;
         --error-bg: #fdecec;
         --error-fg: #8a1f1f;
+        --warning-bg: #fffaed;
+        --warning-fg: #7d5f2e;
     }
     * { box-sizing: border-box; }
     body {
@@ -37,6 +39,8 @@
     }
     textarea { resize: vertical; min-height: 200px; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.92rem; }
     .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    input[type="checkbox"] { margin-right: 0.5rem; }
+    .checkbox-label { display: flex; align-items: center; font-weight: normal; }
     button[type="submit"] {
         background: var(--accent);
         color: #fff;
@@ -48,7 +52,24 @@
         margin-top: 1rem;
     }
     button[type="submit"]:hover { filter: brightness(1.05); }
-    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; }
+    .tabs { display: flex; gap: 1rem; margin-top: 2rem; border-bottom: 1px solid var(--border); }
+    .tab-button {
+        background: none;
+        border: none;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s;
+    }
+    .tab-button.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+    .tab-content { display: none; margin-top: 1.5rem; }
+    .tab-content.active { display: block; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
     .col { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
     .col h2 { margin: 0 0 0.75rem; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
     .col.translated { background: var(--success-bg); }
@@ -77,8 +98,33 @@
         border: 1px solid #e8c0c0;
     }
     .form-errors { color: var(--error-fg); font-size: 0.88rem; margin-top: 0.25rem; }
+    .quality-score {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border-radius: 6px;
+        text-align: center;
+    }
+    .quality-score.high { background: var(--success-bg); color: #2d5f2e; }
+    .quality-score.medium { background: var(--warning-bg); color: var(--warning-fg); }
+    .quality-score.low { background: var(--error-bg); color: var(--error-fg); }
+    .quality-issues { margin-top: 1rem; }
+    .issue { margin: 1rem 0; padding: 0.9rem; border-left: 4px solid var(--border); background: rgba(0,0,0,0.02); border-radius: 4px; }
+    .issue.high { border-left-color: #c41e1e; }
+    .issue.medium { border-left-color: #d97b2f; }
+    .issue.low { border-left-color: #4a7c59; }
+    .issue-rule { font-weight: 600; color: var(--fg); }
+    .issue-severity { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 6px; border-radius: 3px; margin-left: 0.5rem; }
+    .issue-severity.high { background: #ffcccc; color: #8a1f1f; }
+    .issue-severity.medium { background: #fff3cd; color: #7d5f2e; }
+    .issue-severity.low { background: #d4edda; color: #2d5f2e; }
+    .issue-text { font-size: 0.9rem; color: var(--muted); margin: 0.5rem 0; font-style: italic; }
+    .issue-suggestion { font-size: 0.9rem; background: rgba(11, 95, 255, 0.05); padding: 0.5rem; border-radius: 3px; margin-top: 0.5rem; }
+    .quality-summary { font-size: 0.95rem; color: var(--fg); font-style: italic; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     @media (max-width: 800px) {
-        .columns, .settings { grid-template-columns: 1fr; }
+        .columns { grid-template-columns: 1fr; }
+        .settings { grid-template-columns: 1fr; }
     }
 </style>
 {% endblock %}
@@ -108,6 +154,11 @@
             </div>
         </div>
 
+        <label class="checkbox-label">
+            {{ form_widget(form.qualityCheck) }}
+            {{ form_label(form.qualityCheck) }}
+        </label>
+
         {{ form_widget(form.submit) }}
     {{ form_end(form) }}
 
@@ -116,22 +167,82 @@
     {% endif %}
 
     {% if result %}
-        <div class="columns">
-            <div class="col">
-                <h2>Original</h2>
-                <pre>{{ result.originalText }}</pre>
+        <div class="tabs">
+            <button class="tab-button active" data-tab="translation-result">Ergebnis</button>
+            {% if result.qualityCheck %}
+            <button class="tab-button" data-tab="quality-check">Qualitätscheck</button>
+            {% endif %}
+        </div>
+
+        <div id="translation-result" class="tab-content active">
+            <div class="columns">
+                <div class="col">
+                    <h2>Original</h2>
+                    <pre>{{ result.originalText }}</pre>
+                </div>
+                <div class="col translated">
+                    <h2>Leichte Sprache</h2>
+                    <pre>{{ result.translatedText }}</pre>
+                </div>
             </div>
-            <div class="col translated">
-                <h2>Leichte Sprache</h2>
-                <pre>{{ result.translatedText }}</pre>
+            <div class="meta">
+                <span>Modell: <code>{{ result.model }}</code></span>
+                <span>Prompt-Tokens: <code>{{ result.promptTokens }}</code></span>
+                <span>Completion-Tokens: <code>{{ result.completionTokens }}</code></span>
+                <span>Dauer: <code>{{ result.durationMs|number_format(0) }} ms</code></span>
             </div>
         </div>
-        <div class="meta">
-            <span>Modell: <code>{{ result.model }}</code></span>
-            <span>Prompt-Tokens: <code>{{ result.promptTokens }}</code></span>
-            <span>Completion-Tokens: <code>{{ result.completionTokens }}</code></span>
-            <span>Dauer: <code>{{ result.durationMs|number_format(0) }} ms</code></span>
+
+        {% if result.qualityCheck %}
+        <div id="quality-check" class="tab-content">
+            {% set score = result.qualityCheck.score|default(0) %}
+            {% set scoreClass = score >= 80 ? 'high' : (score >= 60 ? 'medium' : 'low') %}
+            <div class="quality-score {{ scoreClass }}">
+                Score: {{ score }}/100
+            </div>
+
+            {% if result.qualityCheck.summary %}
+            <div class="quality-summary">{{ result.qualityCheck.summary }}</div>
+            {% endif %}
+
+            {% if result.qualityCheck.issues|length > 0 %}
+            <div class="quality-issues">
+                <h3>Erkannte Probleme</h3>
+                {% for issue in result.qualityCheck.issues %}
+                <div class="issue {{ issue.severity|default('low') }}">
+                    <div>
+                        <span class="issue-rule">{{ issue.rule|default('Unbekannte Regel') }}</span>
+                        <span class="issue-severity {{ issue.severity|default('low') }}">{{ issue.severity|upper }}</span>
+                    </div>
+                    {% if issue.text %}
+                    <div class="issue-text">„{{ issue.text }}"</div>
+                    {% endif %}
+                    {% if issue.suggestion %}
+                    <div class="issue-suggestion"><strong>Vorschlag:</strong> {{ issue.suggestion }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
+        {% endif %}
     {% endif %}
 </div>
+
+<script>
+document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tabId = this.getAttribute('data-tab');
+        
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        
+        // Show selected tab
+        document.getElementById(tabId)?.classList.add('active');
+        this.classList.add('active');
+    });
+});
+</script>
 {% endblock %}

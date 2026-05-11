@@ -26,5 +26,16 @@ services:
             $promptDir: '%app.prompt_dir%'
             $version: '%app.prompt_version%'
 
+    App\Translator\QualityCheckTool:
+        arguments:
+            $client: '@Steg\Client\InferenceClientInterface'
+            $prompts: '@App\Translator\PromptLoader'
+
+    App\Translator\LeichteSpracheTranslator:
+        arguments:
+            $client: '@Steg\Client\InferenceClientInterface'
+            $prompts: '@App\Translator\PromptLoader'
+            $qualityCheckTool: '@App\Translator\QualityCheckTool'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
