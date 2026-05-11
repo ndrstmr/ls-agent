@@ -7,6 +7,7 @@ namespace App\Translator;
 final readonly class TranslationResult
 {
     public function __construct(
+        public string $traceId,
         public string $originalText,
         public string $translatedText,
         public string $model,

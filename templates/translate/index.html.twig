@@ -25,6 +25,18 @@
         line-height: 1.5;
     }
     .wrap { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+    .nav-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .nav-link:hover { text-decoration: underline; }
     h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
     .lead { color: var(--muted); margin: 0 0 2rem; }
     form > div + div { margin-top: 1rem; }
@@ -166,7 +178,10 @@
 
 {% block body %}
 <div class="wrap">
-    <h1>🌊 LS-KI Agent</h1>
+    <div class="topbar">
+        <h1>🌊 LS-KI Agent</h1>
+        <a class="nav-link" href="{{ path('app_audit') }}">Audit Trail</a>
+    </div>
     <p class="lead">Verwaltungstexte in Leichte Sprache übersetzen — über Steg an ein lokales LLM.</p>
 
     {{ form_start(form) }}
@@ -230,6 +245,7 @@
                 </div>
             </div>
             <div class="meta">
+                <span>Trace: <code>{{ result.traceId }}</code> <a class="nav-link" href="{{ path('app_audit', {trace_id: result.traceId}) }}">anzeigen</a></span>
                 <span>Modell: <code>{{ result.model }}</code></span>
                 <span>Prompt-Tokens: <code>{{ result.promptTokens }}</code></span>
                 <span>Completion-Tokens: <code>{{ result.completionTokens }}</code></span>

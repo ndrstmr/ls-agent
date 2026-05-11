@@ -1,0 +1,107 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Audit Trail — LS-KI Agent{% endblock %}
+
+{% block stylesheets %}
+<style>
+    :root {
+        --bg: #f7f7f5;
+        --fg: #1a1a1a;
+        --muted: #6b6b6b;
+        --accent: #0b5fff;
+        --border: #d8d8d2;
+        --surface: #ffffff;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        margin: 0;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .muted { color: var(--muted); }
+    .link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    form { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+    input[type="text"] {
+        min-width: 320px;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font: inherit;
+    }
+    button {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 6px;
+        padding: 0.55rem 0.9rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 0.55rem 0.5rem; vertical-align: top; }
+    th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+    td code { background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 4px; }
+    .empty { padding: 1rem 0.2rem; color: var(--muted); }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="wrap">
+    <div class="topbar">
+        <div>
+            <h1>Audit Trail</h1>
+            <p class="muted">Append-only Verlauf für Übersetzung und Qualitätscheck.</p>
+        </div>
+        <a class="link" href="{{ path('app_translate') }}">Zur Übersetzung</a>
+    </div>
+
+    <div class="panel">
+        <form method="get" action="{{ path('app_audit') }}">
+            <label for="trace_id">Trace-ID</label>
+            <input id="trace_id" name="trace_id" type="text" value="{{ traceId ?? '' }}" placeholder="z. B. 0196c4e3-...">
+            <button type="submit">Filtern</button>
+            <a class="link" href="{{ path('app_audit') }}">Filter zurücksetzen</a>
+        </form>
+
+        {% if events is empty %}
+            <p class="empty">Keine Audit-Events gefunden.</p>
+        {% else %}
+            <table>
+                <thead>
+                <tr>
+                    <th>Zeit</th>
+                    <th>Trace</th>
+                    <th>Event</th>
+                    <th>Status</th>
+                    <th>Modell</th>
+                    <th>Dauer</th>
+                    <th>Tokens</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for event in events %}
+                    <tr>
+                        <td>{{ event.created_at|default('-') }}</td>
+                        <td><code>{{ event.trace_id|default('-') }}</code></td>
+                        <td>{{ event.event_type|default('-') }}</td>
+                        <td>{{ event.status|default('-') }}</td>
+                        <td>{{ event.model|default('-') }}</td>
+                        <td>{{ event.duration_ms is defined ? event.duration_ms ~ ' ms' : '-' }}</td>
+                        <td>
+                            {% if event.prompt_tokens is defined or event.completion_tokens is defined %}
+                                {{ event.prompt_tokens|default(0) }} / {{ event.completion_tokens|default(0) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

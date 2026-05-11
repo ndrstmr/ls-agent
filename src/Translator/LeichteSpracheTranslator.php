@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Translator;
 
+use App\Audit\AuditTrailService;
 use Steg\Client\InferenceClientInterface;
 use Steg\Model\ChatMessage;
 use Steg\Model\CompletionOptions;
@@ -13,6 +14,7 @@ final readonly class LeichteSpracheTranslator
     public function __construct(
         private InferenceClientInterface $client,
         private PromptLoader $prompts,
+        private ?AuditTrailService $auditTrail = null,
         private ?QualityCheckTool $qualityCheckTool = null,
     ) {
     }
@@ -36,10 +38,21 @@ final readonly class LeichteSpracheTranslator
 
         // Optional: Qualitätsprüfung nach Übersetzung
         if ($request->qualityCheck && null !== $this->qualityCheckTool) {
+            $this->auditTrail?->logEvent($request->traceId, 'quality_started', [
+                'status' => 'started',
+            ]);
+
             $qualityCheckResult = $this->qualityCheckTool->check($translatedText);
+
+            $this->auditTrail?->logEvent($request->traceId, 'quality_completed', [
+                'status' => 'completed',
+                'score' => (int) ($qualityCheckResult['score'] ?? 0),
+                'issues_count' => count((array) ($qualityCheckResult['issues'] ?? [])),
+            ]);
         }
 
         return new TranslationResult(
+            traceId: $request->traceId,
             originalText: $request->originalText,
             translatedText: $translatedText,
             model: $response->model,

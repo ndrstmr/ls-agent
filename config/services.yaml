@@ -9,6 +9,7 @@
 parameters:
     app.prompt_dir: '%kernel.project_dir%/config/prompts'
     app.prompt_version: '%env(PROMPT_VERSION)%'
+    app.share_dir: '%env(string:APP_SHARE_DIR)%'
 
 services:
     # default configuration for services in *this* file
@@ -35,7 +36,13 @@ services:
         arguments:
             $client: '@Steg\Client\InferenceClientInterface'
             $prompts: '@App\Translator\PromptLoader'
+            $auditTrail: '@App\Audit\AuditTrailService'
             $qualityCheckTool: '@App\Translator\QualityCheckTool'
+
+    App\Audit\AuditTrailService:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
+            $shareDir: '%app.share_dir%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
